@@ -1,227 +1,387 @@
-const asyncHandler = require('express-async-handler');
-const Cource = require('../model/courcesModel');
+const { Course, Enrollment } = require('../model/courseModel');
 const User = require('../model/userModel');
+const { Op } = require('sequelize');
+const sequelize = require('../config/db');
 
-// @desc    Create a new cource
+// @desc    Create a new course
 // @route   POST /api/cources
-// @access  Private/Instructor or Admin
-const createCource = asyncHandler(async (req, res) => {
-  const { title, description, price, category, thumbnail, content } = req.body;
+// @access  Private/Teacher
+const createCourse = async (req, res) => {
+  try {
+    const { title, description, imageUrl, duration, level, price } = req.body;
 
-  // Check if all required fields are provided
-  if (!title || !description || !category) {
-    res.status(400);
-    throw new Error('Please provide all required fields');
+    // Create course with current user as teacher
+    const course = await Course.create({
+      title,
+      description,
+      imageUrl,
+      duration,
+      level,
+      price,
+      teacherId: req.user.id,
+    });
+
+    res.status(201).json(course);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  // Create new cource
-  const cource = await Cource.create({
-    instructor: req.user._id,
-    title,
-    description,
-    price: price || 0, // Default to free if price not provided
-    category,
-    thumbnail,
-    content: content || [], // Default to empty content array if not provided
-  });
-
-  if (cource) {
-    res.status(201).json(cource);
-  } else {
-    res.status(400);
-    throw new Error('Invalid cource data');
-  }
-});
-
-// @desc    Get all cources
+// @desc    Get all courses
 // @route   GET /api/cources
 // @access  Public
-const getAllCources = asyncHandler(async (req, res) => {
-  // Query parameters for filtering
-  const keyword = req.query.keyword
-    ? {
-        title: {
-          $regex: req.query.keyword,
-          $options: 'i',
+const getCourses = async (req, res) => {
+  try {
+    const keyword = req.query.keyword
+      ? {
+          [Op.or]: [
+            { title: { [Op.iLike]: `%${req.query.keyword}%` } },
+            { description: { [Op.iLike]: `%${req.query.keyword}%` } },
+          ],
+        }
+      : {};
+
+    const level = req.query.level ? { level: req.query.level } : {};
+    
+    // Only show published courses unless requesting user is a teacher
+    const publishedFilter = req.user && req.user.role === 'teacher' 
+      ? {} 
+      : { isPublished: true };
+
+    const courses = await Course.findAll({
+      where: {
+        ...keyword,
+        ...level,
+        ...publishedFilter,
+      },
+      include: [
+        {
+          model: User,
+          as: 'teacher',
+          attributes: ['id', 'name', 'email', 'profilePicture'],
         },
-      }
-    : {};
+      ],
+      order: [['createdAt', 'DESC']],
+    });
 
-  const category = req.query.category ? { category: req.query.category } : {};
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
-  // Pagination
-  const pageSize = 10;
-  const page = Number(req.query.pageNumber) || 1;
-
-  const count = await Cource.countDocuments({ ...keyword, ...category });
-  
-  const cources = await Cource.find({ ...keyword, ...category })
-    .populate('instructor', 'name email')
-    .limit(pageSize)
-    .skip(pageSize * (page - 1))
-    .sort({ createdAt: -1 });
-
-  res.json({
-    cources,
-    page,
-    pages: Math.ceil(count / pageSize),
-    total: count,
-  });
-});
-
-// @desc    Get cource by ID
+// @desc    Get course by ID
 // @route   GET /api/cources/:id
 // @access  Public
-const getCourceById = asyncHandler(async (req, res) => {
-  const cource = await Cource.findById(req.params.id)
-    .populate('instructor', 'name email');
+const getCourseById = async (req, res) => {
+  try {
+    const course = await Course.findByPk(req.params.id, {
+      include: [
+        {
+          model: User,
+          as: 'teacher',
+          attributes: ['id', 'name', 'email', 'profilePicture'],
+        },
+      ],
+    });
 
-  if (cource) {
-    res.json(cource);
-  } else {
-    res.status(404);
-    throw new Error('Cource not found');
+    if (course) {
+      // Check if course is published or user is the teacher
+      if (course.isPublished || (req.user && (req.user.id === course.teacherId || req.user.role === 'teacher'))) {
+        res.json(course);
+      } else {
+        res.status(403);
+        throw new Error('Course not published');
+      }
+    } else {
+      res.status(404);
+      throw new Error('Course not found');
+    }
+  } catch (error) {
+    res.status(404).json({ message: error.message });
   }
-});
+};
 
-// @desc    Update cource
+// @desc    Update course
 // @route   PUT /api/cources/:id
-// @access  Private/Instructor or Admin
-const updateCource = asyncHandler(async (req, res) => {
-  const cource = await Cource.findById(req.params.id);
+// @access  Private/Teacher
+const updateCourse = async (req, res) => {
+  try {
+    const course = await Course.findByPk(req.params.id);
 
-  if (!cource) {
-    res.status(404);
-    throw new Error('Cource not found');
+    if (!course) {
+      res.status(404);
+      throw new Error('Course not found');
+    }
+
+    // Check if user is the teacher who created the course
+    if (course.teacherId !== req.user.id) {
+      res.status(403);
+      throw new Error('Not authorized to update this course');
+    }
+
+    // Update course details
+    course.title = req.body.title || course.title;
+    course.description = req.body.description || course.description;
+    course.imageUrl = req.body.imageUrl || course.imageUrl;
+    course.duration = req.body.duration || course.duration;
+    course.level = req.body.level || course.level;
+    course.price = req.body.price || course.price;
+    course.isPublished = req.body.isPublished !== undefined ? req.body.isPublished : course.isPublished;
+
+    const updatedCourse = await course.save();
+    res.json(updatedCourse);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
+};
 
-  // Check if user is the instructor of the cource or an admin
-  if (
-    cource.instructor.toString() !== req.user._id.toString() &&
-    !req.user.isAdmin
-  ) {
-    res.status(403);
-    throw new Error('Not authorized to update this cource');
-  }
-
-  // Update cource fields
-  cource.title = req.body.title || cource.title;
-  cource.description = req.body.description || cource.description;
-  cource.price = req.body.price !== undefined ? req.body.price : cource.price;
-  cource.category = req.body.category || cource.category;
-  cource.thumbnail = req.body.thumbnail || cource.thumbnail;
-  cource.content = req.body.content || cource.content;
-  cource.isPublished = req.body.isPublished !== undefined ? req.body.isPublished : cource.isPublished;
-
-  const updatedCource = await cource.save();
-  res.json(updatedCource);
-});
-
-// @desc    Delete cource
+// @desc    Delete course
 // @route   DELETE /api/cources/:id
-// @access  Private/Admin
-const deleteCource = asyncHandler(async (req, res) => {
-  const cource = await Cource.findById(req.params.id);
+// @access  Private/Teacher
+const deleteCourse = async (req, res) => {
+  try {
+    const course = await Course.findByPk(req.params.id);
 
-  if (!cource) {
-    res.status(404);
-    throw new Error('Cource not found');
+    if (!course) {
+      res.status(404);
+      throw new Error('Course not found');
+    }
+
+    // Check if user is the teacher who created the course
+    if (course.teacherId !== req.user.id) {
+      res.status(403);
+      throw new Error('Not authorized to delete this course');
+    }
+
+    await course.destroy();
+    res.json({ message: 'Course removed' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
+};
 
-  await cource.remove();
-  res.json({ message: 'Cource removed' });
-});
-
-// @desc    Enroll in a cource
+// @desc    Enroll in a course
 // @route   POST /api/cources/:id/enroll
-// @access  Private
-const enrollInCource = asyncHandler(async (req, res) => {
-  const cource = await Cource.findById(req.params.id);
-  const user = await User.findById(req.user._id);
+// @access  Private/Student
+const enrollCourse = async (req, res) => {
+  const t = await sequelize.transaction();
 
-  if (!cource) {
-    res.status(404);
-    throw new Error('Cource not found');
+  try {
+    const course = await Course.findByPk(req.params.id);
+
+    if (!course) {
+      res.status(404);
+      throw new Error('Course not found');
+    }
+
+    if (!course.isPublished) {
+      res.status(400);
+      throw new Error('Course is not published yet');
+    }
+
+    // Check if course capacity is full
+    const enrollmentCount = await Enrollment.count({
+      where: { courseId: course.id },
+    });
+
+    if (enrollmentCount >= course.capacity) {
+      res.status(400);
+      throw new Error('Course capacity is full');
+    }
+
+    // Check if already enrolled
+    const existingEnrollment = await Enrollment.findOne({
+      where: {
+        studentId: req.user.id,
+        courseId: course.id,
+      },
+      transaction: t,
+    });
+
+    if (existingEnrollment) {
+      await t.rollback();
+      res.status(400);
+      throw new Error('Already enrolled in this course');
+    }
+
+    // Create enrollment
+    const enrollment = await Enrollment.create(
+      {
+        studentId: req.user.id,
+        courseId: course.id,
+        status: 'active',
+        enrollmentDate: new Date(),
+      },
+      { transaction: t }
+    );
+
+    await t.commit();
+    res.status(201).json({
+      message: 'Successfully enrolled in course',
+      enrollment,
+    });
+  } catch (error) {
+    await t.rollback();
+    res.status(400).json({ message: error.message });
   }
+};
 
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
-  }
-
-  // Check if user is already enrolled
-  const isEnrolled = user.enrolledCources.includes(cource._id);
-  
-  if (isEnrolled) {
-    res.status(400);
-    throw new Error('Already enrolled in this cource');
-  }
-
-  // Add cource to user's enrolled cources
-  user.enrolledCources.push(cource._id);
-  await user.save();
-
-  // Add user to cource's enrolled students
-  cource.enrolledStudents.push(user._id);
-  await cource.save();
-
-  res.status(201).json({ message: 'Successfully enrolled in cource' });
-});
-
-// @desc    Get cource content
-// @route   GET /api/cources/:id/content
-// @access  Private (enrolled students only)
-const getCourceContent = asyncHandler(async (req, res) => {
-  const cource = await Cource.findById(req.params.id)
-    .populate('instructor', 'name email');
-
-  if (!cource) {
-    res.status(404);
-    throw new Error('Cource not found');
-  }
-
-  // Check if user is enrolled, instructor, or admin
-  const isEnrolled = req.user.enrolledCources.includes(cource._id);
-  const isInstructor = cource.instructor._id.toString() === req.user._id.toString();
-  
-  if (!isEnrolled && !isInstructor && !req.user.isAdmin) {
-    res.status(403);
-    throw new Error('Not enrolled in this cource');
-  }
-
-  res.json({
-    _id: cource._id,
-    title: cource.title,
-    content: cource.content,
-    instructor: cource.instructor,
-  });
-});
-
-// @desc    Get enrolled cources for current user
+// @desc    Get enrolled courses for current user
 // @route   GET /api/cources/enrolled
 // @access  Private
-const getEnrolledCources = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id);
+const getEnrolledCourses = async (req, res) => {
+  try {
+    const enrollments = await Enrollment.findAll({
+      where: {
+        studentId: req.user.id,
+      },
+      include: [
+        {
+          model: Course,
+          as: 'Course',
+          include: [
+            {
+              model: User,
+              as: 'teacher',
+              attributes: ['id', 'name', 'email', 'profilePicture'],
+            },
+          ],
+        },
+      ],
+    });
 
-  if (!user) {
-    res.status(404);
-    throw new Error('User not found');
+    const courses = enrollments.map((enrollment) => {
+      return {
+        ...enrollment.Course.dataValues,
+        progress: enrollment.progress,
+        status: enrollment.status,
+        enrollmentDate: enrollment.enrollmentDate,
+        completionDate: enrollment.completionDate,
+      };
+    });
+
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
+};
 
-  const enrolledCources = await Cource.find({
-    _id: { $in: user.enrolledCources },
-  }).populate('instructor', 'name email');
+// @desc    Get courses created by teacher
+// @route   GET /api/cources/teacher
+// @access  Private/Teacher
+const getTeacherCourses = async (req, res) => {
+  try {
+    const courses = await Course.findAll({
+      where: {
+        teacherId: req.user.id,
+      },
+      include: [
+        {
+          model: User,
+          as: 'teacher',
+          attributes: ['id', 'name', 'email', 'profilePicture'],
+        },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
 
-  res.json(enrolledCources);
-});
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get students enrolled in a course
+// @route   GET /api/cources/:id/students
+// @access  Private/Teacher
+const getCourseStudents = async (req, res) => {
+  try {
+    const course = await Course.findByPk(req.params.id);
+
+    if (!course) {
+      res.status(404);
+      throw new Error('Course not found');
+    }
+
+    // Check if user is the teacher who created the course
+    if (course.teacherId !== req.user.id) {
+      res.status(403);
+      throw new Error('Not authorized to view this information');
+    }
+
+    const enrollments = await Enrollment.findAll({
+      where: {
+        courseId: course.id,
+      },
+      include: [
+        {
+          model: User,
+          as: 'User',
+          attributes: ['id', 'name', 'email', 'profilePicture'],
+        },
+      ],
+    });
+
+    const students = enrollments.map((enrollment) => {
+      return {
+        ...enrollment.User.dataValues,
+        progress: enrollment.progress,
+        status: enrollment.status,
+        enrollmentDate: enrollment.enrollmentDate,
+      };
+    });
+
+    res.json(students);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Update enrollment status
+// @route   PUT /api/cources/:id/enrollment
+// @access  Private/Student
+const updateEnrollmentStatus = async (req, res) => {
+  try {
+    const { status, progress } = req.body;
+    
+    const enrollment = await Enrollment.findOne({
+      where: {
+        courseId: req.params.id,
+        studentId: req.user.id,
+      },
+    });
+
+    if (!enrollment) {
+      res.status(404);
+      throw new Error('Enrollment not found');
+    }
+
+    // Update enrollment
+    if (status) enrollment.status = status;
+    if (progress) enrollment.progress = progress;
+    
+    // If status is completed, set completion date
+    if (status === 'completed') {
+      enrollment.completionDate = new Date();
+    }
+
+    const updatedEnrollment = await enrollment.save();
+    res.json(updatedEnrollment);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
 
 module.exports = {
-  createCource,
-  getCourceById,
-  updateCource,
-  deleteCource,
-  getAllCources,
-  enrollInCource,
-  getCourceContent,
-  getEnrolledCources,
+  createCourse,
+  getCourses,
+  getCourseById,
+  updateCourse,
+  deleteCourse,
+  enrollCourse,
+  getEnrolledCourses,
+  getTeacherCourses,
+  getCourseStudents,
+  updateEnrollmentStatus,
 };

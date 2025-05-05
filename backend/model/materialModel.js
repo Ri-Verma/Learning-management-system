@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
-const Quiz = sequelize.define('Quiz', {
+const Material = sequelize.define('Material', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -11,17 +11,14 @@ const Quiz = sequelize.define('Quiz', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  description: {
-    type: DataTypes.TEXT,
-  },
   courseId: {
     type: DataTypes.UUID,
     allowNull: false,
   },
-  questions: {
-    type: DataTypes.JSON,
+  filePath: {
+    type: DataTypes.STRING,
     allowNull: false,
   },
 });
 
-module.exports = Quiz;
+module.exports = Material;

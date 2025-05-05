@@ -1,55 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  createCource, 
-  getCourceById, 
-  updateCource, 
-  deleteCource, 
-  getAllCources,
-  enrollInCource,
-  getCourceContent,
-  getEnrolledCources
+const {
+  createCourse,
+  getCourses,
+  getCourseById,
+  updateCourse,
+  deleteCourse,
+  enrollCourse,
+  getEnrolledCourses,
+  getTeacherCourses,
+  getCourseStudents,
+  updateEnrollmentStatus,
 } = require('../controllers/courcesController');
-const { protect, admin, instructor } = require('../middleware/authMiddleware');
 
-// @desc    Create a new cource
-// @route   POST /api/cources
-// @access  Private/Instructor or Admin
-router.post('/', protect, instructor, createCource);
+// Public routes
+router.get('/', getCourses);
+router.get('/:id', getCourseById);
 
-// @desc    Get all cources
-// @route   GET /api/cources
-// @access  Public
-router.get('/', getAllCources);
+// Teacher routes
+router.post('/', createCourse); // Create a course
+router.put('/:id', updateCourse); // Update a course
+router.delete('/:id', deleteCourse); // Delete a course
+router.get('/teacher', getTeacherCourses); // Get courses created by a teacher
+router.get('/:id/students', getCourseStudents); // Get students enrolled in a course
 
-// @desc    Get cource by ID
-// @route   GET /api/cources/:id
-// @access  Public
-router.get('/:id', getCourceById);
-
-// @desc    Update cource
-// @route   PUT /api/cources/:id
-// @access  Private/Instructor or Admin
-router.put('/:id', protect, instructor, updateCource);
-
-// @desc    Delete cource
-// @route   DELETE /api/cources/:id
-// @access  Private/Admin
-router.delete('/:id', protect, admin, deleteCource);
-
-// @desc    Enroll in a cource
-// @route   POST /api/cources/:id/enroll
-// @access  Private
-router.post('/:id/enroll', protect, enrollInCource);
-
-// @desc    Get cource content
-// @route   GET /api/cources/:id/content
-// @access  Private (enrolled students only)
-router.get('/:id/content', protect, getCourceContent);
-
-// @desc    Get enrolled cources for current user
-// @route   GET /api/cources/enrolled
-// @access  Private
-router.get('/enrolled/me', protect, getEnrolledCources);
+// Student routes
+router.post('/:id/enroll', enrollCourse); // Enroll in a course
+router.get('/enrolled', getEnrolledCourses); // Get courses a student is enrolled in
+router.put('/:id/enrollment', updateEnrollmentStatus); // Update enrollment status
 
 module.exports = router;

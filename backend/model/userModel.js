@@ -1,9 +1,9 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
-// Define the User model
-const User = sequelize.define('User', {
-  id: {
+// Define the Student model
+const Student = sequelize.define('Student', {
+  s_id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
     primaryKey: true,
@@ -21,14 +21,40 @@ const User = sequelize.define('User', {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  isAdmin: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
+  department: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
-  isInstructor: {
-    type: DataTypes.BOOLEAN,
-    defaultValue: false,
+  semester: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
   },
 });
 
-module.exports = User;
+// Define the Instructor model
+const Instructor = sequelize.define('Instructor', {
+  i_id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  email: {
+    type: DataTypes.STRING,
+    unique: true,
+    allowNull: false,
+  },
+  password: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  department: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+});
+
+module.exports = { Student, Instructor };

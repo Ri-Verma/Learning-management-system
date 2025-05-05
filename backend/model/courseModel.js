@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 
-const Quiz = sequelize.define('Quiz', {
+const Course = sequelize.define('Course', {
   id: {
     type: DataTypes.UUID,
     defaultValue: DataTypes.UUIDV4,
@@ -13,15 +13,16 @@ const Quiz = sequelize.define('Quiz', {
   },
   description: {
     type: DataTypes.TEXT,
-  },
-  courseId: {
-    type: DataTypes.UUID,
     allowNull: false,
   },
-  questions: {
-    type: DataTypes.JSON,
+  category: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  instructorId: {
+    type: DataTypes.UUID,
     allowNull: false,
   },
 });
 
-module.exports = Quiz;
+module.exports = Course;
