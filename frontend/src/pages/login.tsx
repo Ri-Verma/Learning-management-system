@@ -3,49 +3,70 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useForm } from "react-hook-form";
-import Navbar from "../components/Navbar";
-import UserStudent from "./user_Student";
-import UserInstructor from "./user_instructor";
+
+interface LoginFormData {
+  email: string;
+  password: string;
+  rememberMe: boolean;
+}
+
+const formOptions = {
+  email: {
+    required: "Email is required",
+    pattern: {
+      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+      message: "Invalid email address"
+    }
+  },
+  password: {
+    required: "Password is required",
+    minLength: {
+      value: 6,
+      message: "Password must be at least 6 characters"
+    }
+  }
+};
 
 const Login: React.FC = () => {
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  const { register, handleSubmit, formState: { errors } } = useForm<{
-    email: string;
-    password: string;
-  }>();
+  const [isLoading, setIsLoading] = useState(false);
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<LoginFormData>();
 
   // Redirect if already logged in
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate('/');
+    if (isAuthenticated && user) {
+      if (user.userType === 'student') {
+        navigate('/user/student');
+      } else if (user.userType === 'instructor') {
+        navigate('/user/instructor');
+      }
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, user, navigate]);
 
-  const onSubmit = async (data: { email: string; password: string }) => {
+  const onSubmit = async (data: LoginFormData) => {
     try {
-      await login(data.email, data.password);
-
-
-      /// Test code
-
-        const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-
-        if (data. === "student") {
-        navigate("/StudentDashboard"); // Redirect to student dashboard
-
-        }
-      // navigate("/"); 
+      setIsLoading(true);
+      setError(null);
+      const userData = await login(data.email, data.password);
+      
+      // Navigate based on user type
+      if (userData.userType === 'student') {
+        navigate('/user/student');
+      } else if (userData.userType === 'instructor') {
+        navigate('/user/instructor');
+      }
     } catch (err) {
       setError("Invalid email or password");
+      reset({ password: '' });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar />
       <div className="flex items-center justify-center min-h-screen">
         <div className="px-8 py-6 mt-4 text-left bg-white shadow-lg rounded-lg">
           <h3 className="text-2xl font-bold text-center text-gray-800">Login to your account</h3>
@@ -59,13 +80,7 @@ const Login: React.FC = () => {
                   className={`w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600 ${
                     errors.email ? 'border-red-500' : ''
                   }`}
-                  {...register("email", {
-                    required: "Email is required",
-                    pattern: {
-                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                      message: "Invalid email address"
-                    }
-                  })}
+                  {...register("email", formOptions.email)}
                 />
                 {errors.email && (
                   <span className="text-xs text-red-500">{errors.email.message}</span>
@@ -79,17 +94,22 @@ const Login: React.FC = () => {
                   className={`w-full px-4 py-2 mt-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-600 ${
                     errors.password ? 'border-red-500' : ''
                   }`}
-                  {...register("password", {
-                    required: "Password is required",
-                    minLength: {
-                      value: 6,
-                      message: "Password must be at least 6 characters"
-                    }
-                  })}
+                  {...register("password", formOptions.password)}
                 />
                 {errors.password && (
                   <span className="text-xs text-red-500">{errors.password.message}</span>
                 )}
+              </div>
+              <div className="flex items-center mt-4">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  {...register("rememberMe")}
+                  className="mr-2"
+                />
+                <label htmlFor="rememberMe" className="text-sm text-gray-600">
+                  Remember me
+                </label>
               </div>
               {error && (
                 <div className="mt-4">
@@ -99,9 +119,14 @@ const Login: React.FC = () => {
               <div className="flex items-center justify-between mt-4">
                 <button
                   type="submit"
-                  className="px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-900"
+                  disabled={isLoading}
+                  className={`px-6 py-2 text-white rounded-lg transition-colors ${
+                    isLoading 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-900'
+                  }`}
                 >
-                  Login
+                  {isLoading ? 'Logging in...' : 'Login'}
                 </button>
                 <a 
                   href="/register" 

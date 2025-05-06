@@ -3,7 +3,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useForm } from "react-hook-form";
-import Navbar from "../components/Navbar";
 
 interface SignupFormData {
   name: string;
@@ -52,7 +51,6 @@ const Signup: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar />
       <div className="flex items-center justify-center min-h-screen">
         <div className="px-8 py-6 mt-4 text-left bg-white shadow-lg rounded-lg w-full max-w-md">
           <h3 className="text-2xl font-bold text-center text-gray-800">Create an Account</h3>

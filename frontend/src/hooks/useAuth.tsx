@@ -2,7 +2,7 @@ import { useState, useContext, createContext, ReactNode } from 'react';
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   signup: (userData: SignupData) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -37,7 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return !!localStorage.getItem('user');
   });
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
       const response = await fetch('http://localhost:5000/api/users/login', {
         method: 'POST',
@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data);
       setIsAuthenticated(true);
       localStorage.setItem('user', JSON.stringify(data));
+      return data; // Return the user data
     } catch (error) {
       console.error('Login error:', error);
       throw error;
