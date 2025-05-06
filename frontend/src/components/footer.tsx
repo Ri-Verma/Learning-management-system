@@ -1,5 +1,5 @@
 import React from 'react';
-
+{/* Warning Change the footer before the end of the project */}
 const Footer: React.FC = () => {
     return (
         <footer className="bg-gray-800 text-white py-4 mt-8">
