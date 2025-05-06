@@ -1,15 +1,23 @@
-const User = require('../model/userModel');
+const { Student, Instructor } = require('../model/userModel');
 const { hashPassword, comparePassword } = require('../utils/hashPassword');
 
 // @desc    Register a new user
 // @route   POST /api/users
 // @access  Public
 const registerUser = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, userType, department, semester } = req.body;
 
   try {
+    // Validate input
+    if (!name || !email || !password || !userType) {
+      res.status(400);
+      throw new Error('All fields are required');
+    }
+
     // Check if the user already exists
-    const userExists = await User.findOne({ where: { email } });
+    const userExists =
+      (await Student.findOne({ where: { email } })) ||
+      (await Instructor.findOne({ where: { email } }));
 
     if (userExists) {
       res.status(400);
@@ -19,20 +27,37 @@ const registerUser = async (req, res) => {
     // Hash the password before saving
     const hashedPassword = await hashPassword(password);
 
-    // Create the user
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role,
-    });
+    let user;
+    if (userType === 'student') {
+      // Create a Student
+      user = await Student.create({
+        name,
+        email,
+        password: hashedPassword,
+        department,
+        semester,
+      });
+    } else if (userType === 'instructor') {
+      // Create an Instructor
+      user = await Instructor.create({
+        name,
+        email,
+        password: hashedPassword,
+        department,
+      });
+    } else {
+      res.status(400);
+      throw new Error('Invalid user type');
+    }
 
     if (user) {
       res.status(201).json({
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        userType,
+        department: user.department,
+        semester: user.semester || null, // Semester is only for students
       });
     } else {
       res.status(400);
@@ -50,15 +75,26 @@ const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    // Validate input
+    if (!email || !password) {
+      res.status(400);
+      throw new Error('Email and password are required');
+    }
+
     // Find the user by email
-    const user = await User.findOne({ where: { email } });
+    const user =
+      (await Student.findOne({ where: { email } })) ||
+      (await Instructor.findOne({ where: { email } }));
 
     if (user && (await comparePassword(password, user.password))) {
+     
       res.json({
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        userType: user instanceof Student ? 'student' : 'instructor',
+        department: user.department,
+        semester: user.semester || null, // Semester is only for students
       });
     } else {
       res.status(401);
@@ -74,14 +110,16 @@ const loginUser = async (req, res) => {
 // @access  Private
 const getUserProfile = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
+    const user =
+      (await Student.findByPk(req.user.id)) ||
+      (await Instructor.findByPk(req.user.id));
 
     if (user) {
       res.json({
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        userType: user instanceof Student ? 'student' : 'instructor',
         isActive: user.isActive,
       });
     } else {
@@ -98,11 +136,18 @@ const getUserProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
+    const user =
+      (await Student.findByPk(req.user.id)) ||
+      (await Instructor.findByPk(req.user.id));
 
     if (user) {
       user.name = req.body.name || user.name;
       user.email = req.body.email || user.email;
+      user.department = req.body.department || user.department;
+
+      if (user instanceof Student) {
+        user.semester = req.body.semester || user.semester;
+      }
 
       if (req.body.password) {
         user.password = await hashPassword(req.body.password);
@@ -114,8 +159,9 @@ const updateUserProfile = async (req, res) => {
         id: updatedUser.id,
         name: updatedUser.name,
         email: updatedUser.email,
-        role: updatedUser.role,
-        isActive: updatedUser.isActive,
+        userType: updatedUser instanceof Student ? 'student' : 'instructor',
+        department: updatedUser.department,
+        semester: updatedUser.semester || null,
       });
     } else {
       res.status(404);
@@ -131,11 +177,17 @@ const updateUserProfile = async (req, res) => {
 // @access  Private/Teacher
 const getUsers = async (req, res) => {
   try {
-    const users = await User.findAll({
+    const students = await Student.findAll({
       attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']],
     });
-    res.json(users);
+
+    const instructors = await Instructor.findAll({
+      attributes: { exclude: ['password'] },
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.json([...students, ...instructors]);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -146,9 +198,13 @@ const getUsers = async (req, res) => {
 // @access  Private/Teacher or self
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findByPk(req.params.id, {
-      attributes: { exclude: ['password'] },
-    });
+    const user =
+      (await Student.findByPk(req.params.id, {
+        attributes: { exclude: ['password'] },
+      })) ||
+      (await Instructor.findByPk(req.params.id, {
+        attributes: { exclude: ['password'] },
+      }));
 
     if (user) {
       res.json(user);
@@ -166,7 +222,16 @@ const getUserById = async (req, res) => {
 // @access  Private
 const deleteUser = async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
+    const { userId } = req.body; // Accept userId from the request body
+
+    if (!userId) {
+      res.status(400);
+      throw new Error('User ID is required');
+    }
+
+    const user =
+      (await Student.findByPk(userId)) ||
+      (await Instructor.findByPk(userId));
 
     if (user) {
       await user.destroy();
