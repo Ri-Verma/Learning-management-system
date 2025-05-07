@@ -14,24 +14,31 @@ const Home: React.FC = () => {
                         Discover a world of knowledge at your fingertips. Join us today and start your learning journey!
                     </p>
                   </div>
-                  <div className="flex justify-center mb-0 h-10">
-                    <img src="/l18.png" alt="" />
-                  </div>
                 </div>
                 <div className="container mx-auto pl-4 pr-4 pt-0 py-8">
                   <div className="text-center mb-6 text-gray-700 font-semibold ">
                     <h1>For future interaction login or signup</h1>
                   </div>
-                  <div className="flex justify-between items-center ">
-                    <p className="block text-center h-100 w-100 p-40"><br /><span className="container mx-auto px-12 font-bold shadow-md text-2xl hover:">
-                      <Link to='/login' className="text-gray-700 hover:text-blue-600 font-medium">
-                      Login
+                  <div className="flex items-center ">
+                    <p className="block text-center h-100 w-100 p-0"><br />
+                      <Link to='/login' className="text-gray-700">
+                      <span className="container mx-auto px-12 font-bold shadow-md text-2xl hover:bg-blue-400 hover:text-white rounded-lg p-2">
+                        Login
+                      </span>
                     </Link>
-                    </span><br /><span className="font-bold shadow-md container mx-auto px-10 text-2xl">
-                    <Link to="/signup" className="text-gray-700 hover:text-blue-600 font-medium">
-                      Signup
-                    </Link></span></p>
-                    <img src="/ideas.png" alt="" className="h-100 float-right block"/>
+                    
+                    <Link to="/signup" className="text-gray-700 hover:text-blue-600 font-medium ">
+                      <span className="container mx-auto px-12 font-bold shadow-md text-2xl hover:bg-blue-400 hover:text-white rounded-lg p-2 z-50">
+                        Signup
+                      </span>
+                    </Link>
+                    <div>
+                      <p className="text-gray-700 font-semibold text-center mt-4">
+                        <h2 className="text-amber-500">Instruction</h2>
+                      </p>
+                    </div>
+                    </p>
+                    <img src="/ideas.png" alt="" className="h-100 "/>
                   </div>
                 </div>
             </section>

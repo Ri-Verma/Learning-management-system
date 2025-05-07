@@ -8,9 +8,8 @@ const Footer: React.FC = () => {
             <p>Follow us on:</p>
             <div className="flex justify-center space-x-4 mt-2">
                 {/*isko change kr lena */}
-            <a href="#" className="text-gray-400 hover:text-white">Xvideos</a>
-            <a href="#" className="text-gray-400 hover:text-white">PornHub</a>
-            <a href="#" className="text-gray-400 hover:text-white">DesiBhabhi</a>
+            <a href="#" className="text-gray-400 hover:text-white">Instagram</a>
+            <a href="#" className="text-gray-400 hover:text-white">LinkedIn</a>
             </div>
         </div>
         </footer>
