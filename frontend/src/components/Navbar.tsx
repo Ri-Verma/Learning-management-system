@@ -64,9 +64,13 @@ const Navbar: React.FC = () => {
             <div className="flex-shrink-0 flex items-center">
               <Link 
                 to={isAuthenticated ? `/user/${user?.userType}` : '/'} 
-                className="text-2xl font-bold text-blue-600"
+                
               >
-                LMS
+                <img 
+                  src="/lms_0.png" 
+                  alt="Logo" 
+                  className="h-15 w-auto" 
+                />
               </Link>
             </div>
 
