@@ -26,9 +26,8 @@ const InstructorDashboard: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        console.log('Instructor ID:', user?.i_id); // Add logging
+        const response = await fetch(`http://localhost:5000/api/courses/instructor/${user?.id}`);
 
-        const response = await fetch(`http://localhost:5000/api/courses/instructor/${user?.i_id}`);
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to fetch courses');
@@ -36,6 +35,7 @@ const InstructorDashboard: React.FC = () => {
         const data = await response.json();
         console.log('Fetched courses:', data); // Add logging
         setCourses(data);
+        return data; 
       } catch (err) {
         console.error('Error fetching courses:', err); // Add logging
         setError(err instanceof Error ? err.message : 'An error occurred');
@@ -44,17 +44,17 @@ const InstructorDashboard: React.FC = () => {
       }
     };
 
-    if (user?.i_id) {
+    if (user?.id) {
       fetchCourses();
     }
-  }, [user?.i_id]);
+  }, [user?.id]);
 
   const handleCreateCourse = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
     try {
-      console.log('Creating course for instructor:', user?.i_id); // Add logging
+      console.log('Creating course for instructor:', user?.id); // Add logging
       const response = await fetch('http://localhost:5000/api/courses', {
         method: 'POST',
         headers: {
@@ -64,7 +64,7 @@ const InstructorDashboard: React.FC = () => {
           title: formData.get('title'),
           description: formData.get('description'),
           category: formData.get('category'),
-          instructorId: user?.i_id,
+          instructorId: user?.id,
         }),
       });
 
