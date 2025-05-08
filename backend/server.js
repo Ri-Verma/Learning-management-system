@@ -8,7 +8,7 @@ require('./model/associations');
 
 // Import routes
 const userRoutes = require('./routes/userRoutes');
-const courcesRoutes = require('./routes/courcesRoutes');
+const courseRoutes = require('./routes/courseRoutes');
 const quizRoutes = require('./routes/quizRoutes');
 const materialRoutes = require('./routes/materialRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -24,7 +24,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/users', userRoutes);
-app.use('/api/cources', courcesRoutes);
+app.use('/api/courses', courseRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/auth', authRoutes);
@@ -43,6 +43,15 @@ app.use((err, req, res, next) => {
     stack: process.env.NODE_ENV === 'production' ? null : err.stack,
   });
 });
+
+// Authenticate Sequelize connection
+sequelize.authenticate()
+  .then(() => {
+    console.log('Database connected successfully');
+  })
+  .catch(err => {
+    console.error('Unable to connect to the database:', err);
+  });
 
 // Sync Sequelize models and start server
 const PORT = process.env.PORT || 5000;

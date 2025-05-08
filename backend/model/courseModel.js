@@ -22,7 +22,7 @@ const Course = sequelize.define('Course', {
   instructorId: {
     type: DataTypes.UUID,
     allowNull: false,
-  },
+  }
 });
 
 module.exports = Course;

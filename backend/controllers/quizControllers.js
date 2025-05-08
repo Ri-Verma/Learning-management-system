@@ -1,6 +1,7 @@
 const { Quiz, QuizResult } = require('../model/quizModel');
 const User = require('../model/userModel');
-const Course = require('../model/courseModel').Course;
+const { Student } = require('../model/userModel');
+const { Course } = require('../model/courseModel');
 
 // @desc    Create a new quiz
 // @route   POST /api/quizzes
@@ -95,9 +96,63 @@ const getQuizResults = async (req, res) => {
   }
 };
 
+// @desc    Get quizzes for student
+// @route   GET /api/quizzes/student/:id
+// @access  Private/Student
+const getStudentQuizzes = async (req, res) => {
+  try {
+    const studentId = req.params.id;
+    
+    // Find student's enrolled courses
+    const student = await Student.findByPk(studentId, {
+      include: [{
+        model: Course,
+        include: [{
+          model: Quiz,
+          attributes: ['id', 'title', 'dueDate'],
+          include: [{
+            model: QuizResult,
+            where: { studentId },
+            required: false
+          }]
+        }]
+      }]
+    });
+
+    if (!student) {
+      res.status(404);
+      throw new Error('Student not found');
+    }
+
+    // Format quizzes with status
+    const quizzes = student.Courses.flatMap(course => 
+      course.Quizzes.map(quiz => ({
+        id: quiz.id,
+        title: quiz.title,
+        courseId: course.id,
+        dueDate: quiz.dueDate,
+        status: getQuizStatus(quiz.QuizResults[0], quiz.dueDate)
+      }))
+    );
+
+    res.json(quizzes);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Helper function to determine quiz status
+const getQuizStatus = (result, dueDate) => {
+  if (!result) {
+    return new Date(dueDate) < new Date() ? 'missed' : 'pending';
+  }
+  return 'completed';
+};
+
 module.exports = {
   createQuiz,
   getQuizzesByCourse,
   submitQuizResult,
   getQuizResults,
+  getStudentQuizzes
 };

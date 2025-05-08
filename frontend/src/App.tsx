@@ -7,6 +7,8 @@ import './App.css';
 import Home from './pages/home';
 import UserStudent from './pages/user_Student';
 import UserInstructor from './pages/user_instructor';
+import TakeQuiz from './pages/TakeQuiz';
+
 import { useAuth } from './hooks/useAuth';
 import Navbar from "./components/Navbar";
 import Footer from "./components/footer";
@@ -61,6 +63,14 @@ const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <UserInstructor />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/quiz/:quizId" 
+                element={
+                  <ProtectedRoute>
+                    <TakeQuiz />
                   </ProtectedRoute>
                 } 
               />

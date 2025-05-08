@@ -3,27 +3,39 @@ const Instructor = require('./userModel').Instructor;
 const Course = require('./courseModel');
 const Quiz = require('./quizModel');
 const Comment = require('./commentModel');
+const Material = require('./materialModel');
 
 // Define relationships between models
 
-// Instructor and Course
+// Instructor and Course (One-to-Many)
 Instructor.hasMany(Course, { foreignKey: 'instructorId', onDelete: 'CASCADE' });
-Course.belongsTo(Instructor, { foreignKey: 'instructorId', onDelete: 'CASCADE' });
+Course.belongsTo(Instructor, { foreignKey: 'instructorId' });
 
-// Course and Quiz
+// Course and Student (Many-to-Many)
+Student.belongsToMany(Course, { 
+  through: 'StudentCourses',
+  foreignKey: 'studentId',
+  otherKey: 'courseId' 
+});
+Course.belongsToMany(Student, { 
+  through: 'StudentCourses',
+  foreignKey: 'courseId',
+  otherKey: 'studentId' 
+});
+
+// Course and Quiz (One-to-Many)
 Course.hasMany(Quiz, { foreignKey: 'courseId', onDelete: 'CASCADE' });
-Quiz.belongsTo(Course, { foreignKey: 'courseId', onDelete: 'CASCADE' });
+Quiz.belongsTo(Course, { foreignKey: 'courseId' });
 
-// Student and Comment
-Student.hasMany(Comment, { foreignKey: 'userId', onDelete: 'CASCADE' });
-Comment.belongsTo(Student, { foreignKey: 'userId', onDelete: 'CASCADE' });
+// Course and Material (One-to-Many)
+Course.hasMany(Material, { foreignKey: 'courseId', onDelete: 'CASCADE' });
+Material.belongsTo(Course, { foreignKey: 'courseId' });
 
-// Instructor and Comment
-Instructor.hasMany(Comment, { foreignKey: 'userId', onDelete: 'CASCADE' });
-Comment.belongsTo(Instructor, { foreignKey: 'userId', onDelete: 'CASCADE' });
-
-// Course and Comment
-Course.hasMany(Comment, { foreignKey: 'courseId', onDelete: 'CASCADE' });
-Comment.belongsTo(Course, { foreignKey: 'courseId', onDelete: 'CASCADE' });
-
-module.exports = { Student, Instructor, Course, Quiz, Comment };
+module.exports = {
+  Student,
+  Instructor,
+  Course,
+  Quiz,
+  Comment,
+  Material
+};
