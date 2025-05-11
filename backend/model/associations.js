@@ -5,8 +5,6 @@ const Quiz = require('./quizModel');
 const Comment = require('./commentModel');
 const Material = require('./materialModel');
 
-// Define relationships between models
-
 // Instructor and Course (One-to-Many)
 Instructor.hasMany(Course, { foreignKey: 'instructorId', onDelete: 'CASCADE' });
 Course.belongsTo(Instructor, { foreignKey: 'instructorId' });

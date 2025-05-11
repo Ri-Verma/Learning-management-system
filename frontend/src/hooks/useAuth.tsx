@@ -1,4 +1,4 @@
-import { useState, useContext, createContext, ReactNode } from 'react';
+import { useState, useContext, createContext, ReactNode, useEffect } from 'react';
 
 interface AuthContextType {
   user: User | null;
@@ -8,8 +8,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
+// Updated User interface to include i_id and s_id
 interface User {
-  id: string;
+  i_id?: string;  
+  s_id?: string;  
   name: string;
   email: string;
   userType: 'student' | 'instructor';
@@ -30,12 +32,27 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch (error) {
+      console.error('Error parsing user from localStorage:', error);
+      localStorage.removeItem('user');
+      return null;
+    }
   });
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('user');
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !!localStorage.getItem('user'));
+
+  // Add effect to sync authentication state
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+      setIsAuthenticated(true);
+    } else {
+      localStorage.removeItem('user');
+      setIsAuthenticated(false);
+    }
+  }, [user]);
 
   const login = async (email: string, password: string): Promise<User> => {
     try {
@@ -48,21 +65,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error('Login failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
       }
 
       const data = await response.json();
-      setUser(data);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(data));
-      return data; // Return the user data
+      
+      // Validate the received data
+      if (!data.name || !data.email || !data.userType) {
+        throw new Error('Invalid user data received');
+      }
+
+      const userData: User = {
+        ...data,
+        i_id: data.userType === 'instructor' ? data.i_id : undefined,
+        s_id: data.userType === 'student' ? data.s_id : undefined,
+      };
+
+      if (userData.userType === 'instructor' && !userData.i_id) {
+        throw new Error('Missing instructor ID');
+      }
+      if (userData.userType === 'student' && !userData.s_id) {
+        throw new Error('Missing student ID');
+      }
+
+      setUser(userData);
+      return userData;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
     }
   };
 
-  const signup = async (userData: SignupData) => {
+  const signup = async (userData: SignupData): Promise<void> => {
     try {
       const response = await fetch('http://localhost:5000/api/users', {
         method: 'POST',
@@ -73,13 +108,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (!response.ok) {
-        throw new Error('Signup failed');
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Signup failed');
       }
 
       const data = await response.json();
+      
+      // Validate received data
+      if (!data.name || !data.email || !data.userType) {
+        throw new Error('Invalid user data received');
+      }
+
       setUser(data);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(data));
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
@@ -88,8 +128,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setUser(null);
-    setIsAuthenticated(false);
-    localStorage.removeItem('user');
   };
 
   return (

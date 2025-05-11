@@ -7,9 +7,9 @@ interface Course {
   title: string;
   description: string;
   category: string;
-  instructorId: string;
   quizzes?: any[];
   materials?: any[];
+  instructorId: string;
 }
 
 const InstructorDashboard: React.FC = () => {
@@ -23,38 +23,44 @@ const InstructorDashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchCourses = async () => {
+      if (!user?.i_id) {
+        console.error('No instructor ID found:', user);
+        setError('User not authenticated');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`http://localhost:5000/api/courses/instructor/${user?.id}`);
+        console.log('Fetching courses for instructor:', user.i_id);
 
+        const response = await fetch(`http://localhost:5000/api/courses/instructor/${user.i_id}`);
+        
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to fetch courses');
         }
+
         const data = await response.json();
-        console.log('Fetched courses:', data); // Add logging
+        console.log('Received courses:', data);
         setCourses(data);
-        return data; 
       } catch (err) {
-        console.error('Error fetching courses:', err); // Add logging
+        console.error('Error fetching courses:', err);
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (user?.id) {
-      fetchCourses();
-    }
-  }, [user?.id]);
+    fetchCourses();
+  }, [user?.i_id]);
 
   const handleCreateCourse = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
 
     try {
-      console.log('Creating course for instructor:', user?.id); // Add logging
       const response = await fetch('http://localhost:5000/api/courses', {
         method: 'POST',
         headers: {
@@ -64,7 +70,7 @@ const InstructorDashboard: React.FC = () => {
           title: formData.get('title'),
           description: formData.get('description'),
           category: formData.get('category'),
-          instructorId: user?.id,
+          instructorId: user?.i_id,
         }),
       });
 
@@ -74,18 +80,12 @@ const InstructorDashboard: React.FC = () => {
       }
 
       const newCourse = await response.json();
-      console.log('Created new course:', newCourse); // Add logging
       setCourses((prev) => [...prev, newCourse]);
       setShowCreateCourse(false);
     } catch (err) {
-      console.error('Error creating course:', err); // Add logging
+      console.error('Error creating course:', err);
       setError(err instanceof Error ? err.message : 'Failed to create course');
     }
-  };
-
-  const handleQuizCreated = () => {
-    setShowCreateQuiz(false);
-    setSelectedCourse('');
   };
 
   return (
@@ -119,33 +119,27 @@ const InstructorDashboard: React.FC = () => {
             <div className="text-center text-red-600 py-4">{error}</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map((course) => (
+              {courses.map((data) => (
                 <div
-                  key={course.id}
+                  key={data.id}
                   className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
                 >
                   <div className="p-6">
                     <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                      {course.title}
+                      {data.title}
                     </h4>
                     <p className="text-gray-600 text-sm mb-4">
-                      {course.description}
+                      {data.description}
                     </p>
                     <div className="flex items-center justify-between mb-4">
                       <span className="text-sm text-gray-500">
-                        Category: {course.category}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        Quizzes: {course.quizzes?.length || 0}
+                        Category: {data.category}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-500">
-                        Materials: {course.materials?.length || 0}
-                      </span>
                       <button
                         onClick={() => {
-                          setSelectedCourse(course.id);
+                          setSelectedCourse(data.id);
                           setShowCreateQuiz(true);
                         }}
                         className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
@@ -162,7 +156,7 @@ const InstructorDashboard: React.FC = () => {
 
         {/* Create Course Modal */}
         {showCreateCourse && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-semibold">Create New Course</h3>
@@ -173,56 +167,54 @@ const InstructorDashboard: React.FC = () => {
                   ✕
                 </button>
               </div>
-              <form onSubmit={handleCreateCourse}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Course Title
-                    </label>
-                    <input
-                      type="text"
-                      name="title"
-                      required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Description
-                    </label>
-                    <textarea
-                      name="description"
-                      required
-                      rows={3}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Category
-                    </label>
-                    <input
-                      type="text"
-                      name="category"
-                      required
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateCourse(false)}
-                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-                    >
-                      Create Course
-                    </button>
-                  </div>
+              <form onSubmit={handleCreateCourse} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Description
+                  </label>
+                  <textarea
+                    name="description"
+                    required
+                    rows={3}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    name="category"
+                    required
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateCourse(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    Create Course
+                  </button>
                 </div>
               </form>
             </div>
@@ -231,26 +223,13 @@ const InstructorDashboard: React.FC = () => {
 
         {/* Create Quiz Modal */}
         {showCreateQuiz && selectedCourse && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-semibold">Create New Quiz</h3>
-                <button
-                  onClick={() => {
-                    setShowCreateQuiz(false);
-                    setSelectedCourse('');
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  ✕
-                </button>
-              </div>
-              <CreateQuiz
-                courseId={selectedCourse}
-                onQuizCreated={handleQuizCreated}
-              />
-            </div>
-          </div>
+          <CreateQuiz
+            courseId={selectedCourse}
+            onQuizCreated={() => {
+              setShowCreateQuiz(false);
+              setSelectedCourse('');
+            }}
+          />
         )}
       </div>
     </div>

@@ -69,5 +69,16 @@ Course.belongsTo(Instructor, {
   as: 'instructor' // Optional alias
 });
 
+Student.belongsToMany(Course, {
+  through: 'StudentCourses',
+  foreignKey: 'studentId',
+  otherKey: 'courseId',
+});
+Course.belongsToMany(Student, {
+  through: 'StudentCourses',
+  foreignKey: 'courseId',
+  otherKey: 'studentId',
+});
+
 
 module.exports = { Student, Instructor };

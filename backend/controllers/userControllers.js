@@ -77,8 +77,7 @@ const loginUser = async (req, res) => {
   try {
     // Validate input
     if (!email || !password) {
-      res.status(400);
-      throw new Error('Email and password are required');
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
     // Find the user by email
@@ -87,18 +86,18 @@ const loginUser = async (req, res) => {
       (await Instructor.findOne({ where: { email } }));
 
     if (user && (await comparePassword(password, user.password))) {
-     
       res.json({
-        id: user.id,
         name: user.name,
         email: user.email,
         userType: user instanceof Student ? 'student' : 'instructor',
         department: user.department,
-        semester: user.semester || null, // Semester is only for students
+        semester: user.semester || null,
+        // Add the correct ID field based on user type
+        i_id: user instanceof Instructor ? user.i_id : undefined,
+        s_id: user instanceof Student ? user.s_id : undefined,
       });
     } else {
-      res.status(401);
-      throw new Error('Invalid email or password');
+      res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
     res.status(401).json({ message: error.message });

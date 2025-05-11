@@ -6,7 +6,7 @@ const UserInstructor: React.FC = () => {
     <div>
       <main className="min-h-screen bg-gray-100 flex items-center justify-center">
         <InstructorDashboard />
-        <h1>Hello Sir</h1>
+        
       </main>
     </div>
   );

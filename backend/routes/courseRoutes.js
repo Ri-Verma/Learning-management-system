@@ -5,17 +5,19 @@ const {
   getInstructorCourses, 
   createCourse,
   enrollInCourse,
-  checkStudent,
-  checkInstructor
+  getAllCourses
 } = require('../controllers/courseController');
 
-// Student routes
-router.get('/student/:id', checkStudent, getStudentCourses);
-router.post('/student/:id/enroll/:courseId', checkStudent, enrollInCourse);
+router.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
-// Instructor routes
-router.get('/instructor/:id', checkInstructor, getInstructorCourses);
-// Changed from /create to / for course creation
+router.get('/instructor/:id', getInstructorCourses);
 router.post('/', createCourse);
+router.get('/student/:id', getStudentCourses);
+router.post('/student/:id/enroll/:courseId', enrollInCourse);
+router.get('/all', getAllCourses);
+
 
 module.exports = router;

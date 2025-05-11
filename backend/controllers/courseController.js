@@ -3,12 +3,12 @@ const Material = require('../model/materialModel');
 const Quiz = require('../model/quizModel');
 const { Student, Instructor } = require('../model/userModel');
 
-// Middleware function to check if user exists and has correct role
+//check if user exists and has correct role
 const checkUserRole = async (req, res, next, role) => {
   const userId = req.params.id;
-  let user;
-
+  
   try {
+    let user;
     if (role === 'student') {
       user = await Student.findByPk(userId);
     } else if (role === 'instructor') {
@@ -16,17 +16,19 @@ const checkUserRole = async (req, res, next, role) => {
     }
 
     if (!user) {
-      return res.status(404).json({ message: `${role} not found` });
+      return res.status(404).json({ 
+        message: `${role} not found` 
+      });
     }
 
     req.user = user;
     next();
   } catch (error) {
+    console.error(`Error checking ${role} role:`, error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Middleware functions for specific roles
 const checkStudent = (req, res, next) => checkUserRole(req, res, next, 'student');
 const checkInstructor = (req, res, next) => checkUserRole(req, res, next, 'instructor');
 
@@ -58,17 +60,13 @@ const getStudentCourses = async (req, res) => {
       }]
     });
 
-    const courses = student.Courses.map(course => ({
-      id: course.id,
-      title: course.title,
-      description: course.description,
-      instructor: course.instructor.name,
-      materials: course.Materials,
-      quizzes: course.Quizzes
-    }));
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
 
-    res.json(courses);
+    res.json(student.Courses);
   } catch (error) {
+    console.error('Error in getStudentCourses:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -79,27 +77,36 @@ const getStudentCourses = async (req, res) => {
 const getInstructorCourses = async (req, res) => {
   try {
     const instructorId = req.params.id;
-    console.log('Fetching courses for instructor:', instructorId); // Add logging
+    console.log('Fetching courses for instructor:', instructorId);
+
+    if (!instructorId) {
+      return res.status(400).json({ message: 'Instructor ID is required' });
+    }
 
     const courses = await Course.findAll({
-      where: { instructorId }, // This should match with i_id from instructor
+      where: { 
+        instructorId: instructorId 
+      },
       include: [
         {
-          model: Material,
-          attributes: ['id', 'title', 'filePath']
+          model: Quiz,
+          attributes: ['id', 'title', 'description'],
+          required: false
         },
         {
-          model: Quiz,
-          attributes: ['id', 'title', 'description']
+          model: Material,
+          attributes: ['id', 'title', 'filePath'],
+          required: false
         }
-      ]
+      ],
+      order: [['createdAt', 'DESC']]
     });
 
-    console.log('Found courses:', courses); // Add logging
-    res.json(courses);
+    console.log('Found courses:', courses.length);
+    return res.status(200).json(courses);
   } catch (error) {
-    console.error('Error fetching courses:', error); // Add logging
-    res.status(500).json({ message: error.message });
+    console.error('Error in getInstructorCourses:', error);
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -109,12 +116,12 @@ const getInstructorCourses = async (req, res) => {
 const createCourse = async (req, res) => {
   try {
     const { title, description, category, instructorId } = req.body;
-    console.log('Creating course with data:', { title, description, category, instructorId }); // Add logging
 
-    // Validate required fields
-    if (!title || !description || !category || !instructorId) {
-      return res.status(400).json({
-        message: 'Missing required fields'
+    // Validate instructor exists
+    const instructor = await Instructor.findByPk(instructorId);
+    if (!instructor) {
+      return res.status(404).json({ 
+        message: 'Instructor not found' 
       });
     }
 
@@ -122,41 +129,57 @@ const createCourse = async (req, res) => {
       title,
       description,
       category,
-      instructorId // This should match with i_id from instructor
+      instructorId
     });
 
-    console.log('Created course:', course); // Add logging
+    console.log('Created course:', course.id);
     res.status(201).json(course);
   } catch (error) {
-    console.error('Course creation error:', error);
-    res.status(500).json({ 
-      message: 'Error creating course',
-      error: error.message 
-    });
+    console.error('Error creating course:', error);
+    res.status(400).json({ message: error.message });
   }
 };
+
+
+// @ get all cources
+
+const getAllCourses = async (req, res) => {
+  try {
+    const courses = await Course.findAll({
+      include: {
+        model: Instructor,
+        attributes: ['name'],
+        as: 'instructor'
+      }
+    });
+    res.status(200).json(courses);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch courses', error });
+  }
+};
+
 
 // @desc    Enroll student in a course
 // @route   POST /api/courses/:courseId/enroll
 // @access  Private/Student
 const enrollInCourse = async (req, res) => {
   try {
-    const { courseId } = req.params;
-    const studentId = req.params.id;
+    const { courseId, id: studentId } = req.params;
 
     const course = await Course.findByPk(courseId);
-    if (!course) {
-      return res.status(404).json({ message: 'Course not found' });
-    }
+    if (!course) return res.status(404).json({ message: 'Course not found' });
 
     const student = await Student.findByPk(studentId);
-    await student.addCourse(course);
+    const isEnrolled = await student.hasCourse(course);
+    if (isEnrolled) return res.status(400).json({ message: 'Already enrolled in this course' });
 
+    await student.addCourse(course);
     res.json({ message: 'Successfully enrolled in course' });
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
 };
+
 
 module.exports = {
   getStudentCourses,
@@ -164,5 +187,6 @@ module.exports = {
   createCourse,
   enrollInCourse,
   checkStudent,
-  checkInstructor
+  checkInstructor,
+  getAllCourses
 };

@@ -3,10 +3,8 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const sequelize = require('./config/db'); 
 
-// Import models to establish relationships
 require('./model/associations');
 
-// Import routes
 const userRoutes = require('./routes/userRoutes');
 const courseRoutes = require('./routes/courseRoutes');
 const quizRoutes = require('./routes/quizRoutes');
@@ -22,16 +20,24 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
 app.use('/api/users', userRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/materials', materialRoutes);
 app.use('/api/auth', authRoutes);
 
-// Default route
 app.get('/', (req, res) => {
   res.send('API is running...');
+});
+
+// Add this route temporarily for testing
+app.get('/test-db', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    res.json({ message: 'Database connection successful' });
+  } catch (error) {
+    res.status(500).json({ message: 'Database connection failed', error: error.message });
+  }
 });
 
 // Error handling middleware
@@ -55,16 +61,15 @@ sequelize.authenticate()
 
 // Sync Sequelize models and start server
 const PORT = process.env.PORT || 5000;
-sequelize.sync({ alter: true }) 
+sequelize.sync({ alter: true })
   .then(() => {
-    console.log('Sequelize models synced with PostgreSQL');
+    console.log('Database synchronized');
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   })
-  .catch((err) => {
-    console.error('Sequelize sync error:', err.message);
-    process.exit(1);
+  .catch(err => {
+    console.error('Database sync error:', err);
   });
 
 // Graceful shutdown
